@@ -55,10 +55,13 @@ function ogShopBanner(shop) {
   if (!shop) return null;
   const pid = extractPublicId(shop.photo_vitrine);
   if (!pid) return null;
-  const base = 'w_1200,h_630,c_fill,e_brightness:-25';
-  const nom = `l_text:Arial_64_bold:${cloudinaryText(shop.nom_boutique || 'Boutique')},co_rgb:F3E5AB,g_south_west,x_60,y_120`;
-  const bio = `l_text:Arial_30:${cloudinaryText(shop.bio || 'Élégance. Qualité. Confiance.')},co_rgb:FFFFFF,g_south_west,x_60,y_70`;
-  return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${base}/${nom}/${bio}/${pid}`;
+  // Transformation identique au produit (validée) : uniquement w/h/c_fill.
+  // Pas de e_brightness (module non garanti sur ce compte). Juste le nom de
+  // boutique en doré. Le slogan (souvent avec accents, fragile en URL) est
+  // volontairement RETIRÉ de l'image pour l'instant.
+  const base = 'w_1200,h_630,c_fill';
+  const nom = `l_text:Arial_60_bold:${cloudinaryText(shop.nom_boutique || 'Boutique')},co_rgb:F3E5AB,g_south_west,x_55,y_60`;
+  return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${base}/${nom}/${pid}`;
 }
 
 // ---- Firestore REST (lecture publique, sans SDK ni secret) ----
@@ -131,4 +134,3 @@ module.exports = {
   fetchProduct, fetchShop, flattenFirestore,
   esc, ogHtml,
 };
-    
