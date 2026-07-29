@@ -187,7 +187,12 @@ function esc(s) {
 }
 
 // ---- Page HTML minimale : balises OG pour WhatsApp + redirection client ----
-function ogHtml({ title, description, image, canonicalUrl, redirectUrl }) {
+function ogHtml({ title, description, image, canonicalUrl, redirectUrl, isBot }) {
+  // CLÉ : les robots (WhatsApp/Facebook) ne doivent PAS être redirigés, sinon
+  // ils suivent la redirection jusqu'à l'app Firebase et lisent SES balises OG
+  // (le logo) au lieu de notre belle image. On ne redirige donc QUE les humains.
+  const redirect = isBot ? '' : `<meta http-equiv="refresh" content="0; url=${esc(redirectUrl)}">`;
+  const redirectScript = isBot ? '' : `<script>window.location.replace(${JSON.stringify(redirectUrl)});</script>`;
   return `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -202,18 +207,25 @@ ${image ? `<meta property="og:image" content="${esc(image)}">
 <meta property="og:url" content="${esc(canonicalUrl)}">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
-<meta http-equiv="refresh" content="0; url=${esc(redirectUrl)}">
+${redirect}
 </head>
 <body>
-<script>window.location.replace(${JSON.stringify(redirectUrl)});</script>
+${redirectScript}
 <p>Redirection vers la boutique…</p>
 </body>
 </html>`;
+}
+
+// Détecte les robots d'aperçu de lien (WhatsApp, Facebook, Twitter, etc.).
+function isCrawler(userAgent) {
+  const ua = (userAgent || '').toLowerCase();
+  return /whatsapp|facebookexternalhit|facebot|twitterbot|telegrambot|linkedinbot|slackbot|discordbot|googlebot|bingbot|embedly|pinterest|vkshare|w3c_validator|og_scraper/.test(ua);
 }
 
 module.exports = {
   CLOUD_NAME, FIRESTORE_PROJECT,
   extractPublicId, ogProductBanner, ogShopBanner, fmtPrice,
   fetchProduct, fetchShop, fetchFeaturedProduct, flattenFirestore,
-  esc, ogHtml,
+  esc, ogHtml, isCrawler,
 };
+  
