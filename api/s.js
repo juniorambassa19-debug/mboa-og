@@ -7,7 +7,7 @@
 // (/catalogue?v=<uid>).
 // ============================================================
 
-const { fetchShop, ogHtml } = require('./_og');
+const { fetchShop, ogHtml, isCrawler } = require('./_og');
 
 const APP_BASE = 'https://mboacatalog.web.app';
 
@@ -27,6 +27,7 @@ module.exports = async (req, res) => {
       return res.end('<p>Boutique introuvable.</p>');
     }
 
+    const isBot = isCrawler(req.headers['user-agent']);
     const shop = await fetchShop(uid);
 
     const redirectUrl = `${APP_BASE}/catalogue?v=${encodeURIComponent(uid)}&src=partage`;
@@ -40,6 +41,7 @@ module.exports = async (req, res) => {
         image: null,
         canonicalUrl,
         redirectUrl,
+        isBot,
       });
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       return res.end(html);
@@ -73,6 +75,7 @@ module.exports = async (req, res) => {
       image,
       canonicalUrl,
       redirectUrl,
+      isBot,
     });
 
     res.setHeader('Cache-Control', 's-maxage=600, stale-while-revalidate=3600');
@@ -84,4 +87,4 @@ module.exports = async (req, res) => {
     return res.end('<p>Erreur temporaire.</p>');
   }
 };
-  
+                  
