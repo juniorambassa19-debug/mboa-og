@@ -18,8 +18,19 @@ function searchParamsOrQuery(req) {
 
 module.exports = async (req, res) => {
   try {
-    const uid = (req.query && (req.query.v || req.query.uid))
-      || (req.url.split('/').pop() || '').split('?')[0];
+    // Extraction robuste de l'uid, quels que soient les paramètres en plus
+    // (?fresh=, ?x=, etc.). On lit d'abord ?v=, sinon le segment de chemin /s/<uid>.
+    let uid = null;
+    try {
+      const u = new URL(req.url, `https://${req.headers.host || 'x'}`);
+      uid = u.searchParams.get('v') || u.searchParams.get('uid');
+      if (!uid) {
+        const parts = u.pathname.split('/').filter(Boolean);
+        uid = parts[parts.length - 1] || null;
+      }
+    } catch (e) {
+      uid = (req.query && (req.query.v || req.query.uid)) || null;
+    }
 
     if (!uid) {
       res.statusCode = 400;
@@ -87,4 +98,3 @@ module.exports = async (req, res) => {
     return res.end('<p>Erreur temporaire.</p>');
   }
 };
-                  
