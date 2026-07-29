@@ -43,7 +43,7 @@ function ogProductBanner(product) {
   if (!product) return null;
   const pid = extractPublicId(product.photo_url);
   if (!pid) return null;
-  const base = 'w_1200,h_630,c_fill';
+  const base = 'w_1200,h_630,c_fill,f_jpg,q_auto';
   const prix = `l_text:Arial_58_bold:${cloudinaryText(fmtPrice(product.prix))},co_rgb:FFFFFF,g_south_west,x_50,y_50`;
   const nom = `l_text:Arial_34_bold:${cloudinaryText(product.nom)},co_rgb:E5C158,g_south_west,x_50,y_125`;
   return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${base}/${prix}/${nom}/${pid}`;
@@ -59,7 +59,7 @@ function ogShopBanner(shop) {
   // Pas de e_brightness (module non garanti sur ce compte). Juste le nom de
   // boutique en doré. Le slogan (souvent avec accents, fragile en URL) est
   // volontairement RETIRÉ de l'image pour l'instant.
-  const base = 'w_1200,h_630,c_fill';
+  const base = 'w_1200,h_630,c_fill,f_jpg,q_auto';
   const nom = `l_text:Arial_60_bold:${cloudinaryText(shop.nom_boutique || 'Boutique')},co_rgb:F3E5AB,g_south_west,x_55,y_60`;
   return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${base}/${nom}/${pid}`;
 }
