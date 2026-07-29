@@ -11,6 +11,11 @@ const { fetchShop, ogHtml } = require('./_og');
 
 const APP_BASE = 'https://mboacatalog.web.app';
 
+function searchParamsOrQuery(req) {
+  if (req.query) return req.query;
+  try { const u = new URL(req.url, 'http://x'); const o = {}; u.searchParams.forEach((v,k)=>o[k]=v); return o; } catch(e){ return {}; }
+}
+
 module.exports = async (req, res) => {
   try {
     const uid = (req.query && (req.query.v || req.query.uid))
@@ -43,7 +48,25 @@ module.exports = async (req, res) => {
     const nomBoutique = shop.nom_boutique || 'Boutique';
     // Image PREMIUM générée par @vercel/og (deux zones : vitrine + produit vedette).
     // On pointe vers notre propre route de génération d'image.
-    const image = `https://${req.headers.host}/api/vitrine-image?v=${encodeURIComponent(uid)}`;
+    // Domaine du portier en dur : plus fiable que req.headers.host, qui peut
+    // renvoyer un host interne Vercel et casser l'URL vue par WhatsApp.
+    const OG_HOST = 'mboa-og-63f8.vercel.app';
+    const image = `https://${OG_HOST}/api/vitrine-image?v=${encodeURIComponent(uid)}`;
+
+    // Mode diagnostic lisible sur mobile : ?show=1 affiche l'URL og:image et
+    // charge l'image directement (pour voir si elle s'affiche).
+    if (searchParamsOrQuery(req).show) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.end(
+        '<html><head><meta charset=utf-8></head><body style="font-family:sans-serif;padding:16px;word-break:break-all;background:#111;color:#eee;">' +
+        '<h3>Ce que WhatsApp va lire</h3>' +
+        '<p><b>og:image =</b><br>' + image + '</p>' +
+        '<p><b>L\'image se charge-t-elle ci-dessous ?</b></p>' +
+        '<img src="' + image + '" style="width:100%;border:1px solid #444;">' +
+        '<p style="color:#888;font-size:12px;">Si tu vois la belle image deux zones ici, l\'URL est bonne.</p>' +
+        '</body></html>'
+      );
+    }
     const html = ogHtml({
       title: `Visitez la vitrine de ${nomBoutique}`,
       description: shop.bio || 'Découvrez tout notre stock et commandez directement sur WhatsApp.',
@@ -61,3 +84,4 @@ module.exports = async (req, res) => {
     return res.end('<p>Erreur temporaire.</p>');
   }
 };
+  
