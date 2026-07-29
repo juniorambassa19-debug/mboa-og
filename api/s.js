@@ -7,7 +7,7 @@
 // (/catalogue?v=<uid>).
 // ============================================================
 
-const { fetchShop, ogShopBanner, ogHtml } = require('./_og');
+const { fetchShop, ogHtml } = require('./_og');
 
 const APP_BASE = 'https://mboacatalog.web.app';
 
@@ -41,7 +41,9 @@ module.exports = async (req, res) => {
     }
 
     const nomBoutique = shop.nom_boutique || 'Boutique';
-    const image = ogShopBanner(shop);
+    // Image PREMIUM générée par @vercel/og (deux zones : vitrine + produit vedette).
+    // On pointe vers notre propre route de génération d'image.
+    const image = `https://${req.headers.host}/api/vitrine-image?v=${encodeURIComponent(uid)}`;
     const html = ogHtml({
       title: `Visitez la vitrine de ${nomBoutique}`,
       description: shop.bio || 'Découvrez tout notre stock et commandez directement sur WhatsApp.',
@@ -59,4 +61,3 @@ module.exports = async (req, res) => {
     return res.end('<p>Erreur temporaire.</p>');
   }
 };
-    
