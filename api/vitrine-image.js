@@ -118,9 +118,17 @@ export default async function handler(req) {
 
     const tree = h('div', { style: { display: 'flex', flexDirection: 'column', width: '1200px', height: '630px', background: NOIR } }, zoneHaut, zoneBas);
 
-    return new ImageResponse(tree, { width: 1200, height: 630 });
+    return new ImageResponse(tree, {
+      width: 1200,
+      height: 630,
+      headers: {
+        // Cache CDN : après la 1re génération, l'image est servie instantanément
+        // (WhatsApp n'attend pas la regénération, ce qui évite qu'il abandonne).
+        'Cache-Control': 'public, immutable, no-transform, s-maxage=86400, max-age=86400',
+      },
+    });
   } catch (e) {
     return new Response('Erreur : ' + e.message, { status: 500 });
   }
-        }
-      
+                    }
+                                                                       
