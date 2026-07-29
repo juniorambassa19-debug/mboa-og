@@ -39,14 +39,38 @@ function fmtPrice(prix) {
   return n.toLocaleString('fr-FR').replace(/\u202f|\u00a0/g, ' ') + ' FCFA';
 }
 
+// Reproduit la logique de public/category.js : is_negotiable prioritaire,
+// puis repli sur negotiable, puis price_tag === 'negociable'.
+function isNegotiable(p) {
+  if (!p) return false;
+  if (typeof p.is_negotiable === 'boolean') return p.is_negotiable;
+  if (typeof p.negotiable === 'boolean') return p.negotiable;
+  return p.price_tag === 'negociable';
+}
+
 function ogProductBanner(product) {
   if (!product) return null;
   const pid = extractPublicId(product.photo_url);
   if (!pid) return null;
-  const base = 'w_1200,h_630,c_fill,f_jpg,q_auto';
-  const prix = `l_text:Arial_58_bold:${cloudinaryText(fmtPrice(product.prix))},co_rgb:FFFFFF,g_south_west,x_50,y_50`;
-  const nom = `l_text:Arial_34_bold:${cloudinaryText(product.nom)},co_rgb:E5C158,g_south_west,x_50,y_125`;
-  return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${base}/${prix}/${nom}/${pid}`;
+
+  // c_pad,b_white : le PRODUIT ENTIER est visible (rien coupé), sur fond blanc
+  // épuré facon boutique haut de gamme. f_jpg,q_auto : conversion + compression
+  // (robuste tous formats/poids, y compris PNG UHD IA).
+  const base = 'w_1200,h_630,c_pad,b_white,f_jpg,q_auto';
+
+  // Prix en OR ANTIQUE (#8B7500), discret, bas-droite dans le negative space.
+  const prix = `co_rgb:8B7500,l_text:Arial_44:${cloudinaryText('Prix : ' + fmtPrice(product.prix))},g_south_east,x_50,y_50`;
+
+  // Label « Négociable » en TAUPE (#A39C92), au-dessus du prix, seulement si
+  // le produit est négociable. Rien si prix fixe (épure maximale).
+  const layers = [base, prix];
+  if (isNegotiable(product)) {
+    // on remonte le prix pour laisser la place au label en dessous
+    layers[1] = `co_rgb:8B7500,l_text:Arial_44:${cloudinaryText('Prix : ' + fmtPrice(product.prix))},g_south_east,x_50,y_95`;
+    layers.push(`co_rgb:A39C92,l_text:Arial_30:${cloudinaryText('Négociable')},g_south_east,x_50,y_50`);
+  }
+
+  return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${layers.join('/')}/${pid}`;
 }
 
 // Bannière VITRINE (version simple) : photo de couverture + nom de la boutique.
@@ -97,6 +121,64 @@ async function fetchShop(shopId) {
   return flattenFirestore(await res.json());
 }
 
+// Récupère LE produit vedette d'une boutique : l'épinglé en priorité, sinon le
+// plus récent. Reproduit exactement le tri de l'app (public/views/catalogue.js).
+// N'invente rien : si la boutique n'a aucun produit, renvoie null.
+async function fetchFeaturedProduct(shopUid) {
+  // runQuery : tous les produits de cette vendeuse (lecture publique autorisée).
+  const url = `https://firestore.googleapis.com/v1/projects/${FIRESTORE_PROJECT}/databases/(default)/documents:runQuery`;
+  const body = {
+    structuredQuery: {
+      from: [{ collectionId: 'produits' }],
+      where: {
+        fieldFilter: {
+          field: { fieldPath: 'vendeuse_uid' },
+          op: 'EQUAL',
+          value: { stringValue: shopUid },
+        },
+      },
+      limit: 50,
+    },
+  };
+  let rows;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) return null;
+    rows = await res.json();
+  } catch (e) { return null; }
+
+  // rows = [{ document: {...} }, ...] ; on aplatit et on filtre les vides.
+  const produits = (rows || [])
+    .filter((r) => r.document)
+    .map((r) => flattenFirestore(r.document))
+    .filter((p) => p && p.actif !== false && p.photo_url);
+
+  if (!produits.length) return null;
+
+  // PRODUIT VEDETTE = le PLUS VENDU (ventes_count le plus élevé).
+  // Repli si personne n'a encore de vente : le premier du catalogue (le plus
+  // récent). L'épingle n'entre PAS dans ce choix (un vendeur épingle plusieurs
+  // articles pour les garder visibles, ça ne désigne pas UNE vedette).
+  const ventes = (p) => Number(p.ventes_count) || 0;
+  const createdMs = (p) => {
+    const t = p.created_at;
+    if (t && typeof t === 'number') return t;
+    if (t && t.seconds) return t.seconds * 1000;
+    return 0;
+  };
+  produits.sort((a, b) => {
+    const va = ventes(a), vb = ventes(b);
+    if (va !== vb) return vb - va;               // 1. le plus vendu devant
+    return createdMs(b) - createdMs(a);          // 2. sinon le plus récent
+  });
+
+  return produits[0];   // le vedette : plus vendu, sinon premier du catalogue
+}
+
 // ---- Échappement HTML (sécurité : jamais injecter du texte brut) ----
 function esc(s) {
   return String(s == null ? '' : s)
@@ -131,6 +213,7 @@ ${image ? `<meta property="og:image" content="${esc(image)}">
 module.exports = {
   CLOUD_NAME, FIRESTORE_PROJECT,
   extractPublicId, ogProductBanner, ogShopBanner, fmtPrice,
-  fetchProduct, fetchShop, flattenFirestore,
+  fetchProduct, fetchShop, fetchFeaturedProduct, flattenFirestore,
   esc, ogHtml,
 };
+                            
