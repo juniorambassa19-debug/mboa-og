@@ -64,9 +64,12 @@ module.exports = async (req, res) => {
     // Domaine du portier en dur : plus fiable que req.headers.host, qui peut
     // renvoyer un host interne Vercel et casser l'URL vue par WhatsApp.
     const OG_HOST = 'mboa-og-63f8.vercel.app';
-    // URL avec extension .png : WhatsApp accepte les vraies terminaisons image.
-    // Cette route est réécrite (vercel.json) vers le générateur @vercel/og.
-    const image = `https://${OG_HOST}/vitrine/${encodeURIComponent(uid)}.png`;
+    const CLOUD = 'dxadpnvi7';
+    // Chaîne finale : @vercel/og génère l'image (belle mais lourde, ~1 Mo),
+    // PUIS Cloudinary la récupère (fetch) et la COMPRESSE en JPG léger.
+    // WhatsApp reçoit alors une image légère qu'il accepte (comme les produits).
+    const ogPng = `https://${OG_HOST}/vitrine/${encodeURIComponent(uid)}.png`;
+    const image = `https://res.cloudinary.com/${CLOUD}/image/fetch/f_jpg,q_auto/${encodeURIComponent(ogPng)}`;
 
     // Mode diagnostic lisible sur mobile : ?show=1 affiche l'URL og:image et
     // charge l'image directement (pour voir si elle s'affiche).
@@ -100,3 +103,4 @@ module.exports = async (req, res) => {
     return res.end('<p>Erreur temporaire.</p>');
   }
 };
+    
