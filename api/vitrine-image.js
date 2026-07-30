@@ -70,13 +70,20 @@ function fmtPrice(prix) {
 // Cloudinary : version optimisée (JPG compressé) pour un chargement rapide.
 function optimized(url, w, h) {
   if (!url || url.indexOf('/upload/') === -1) return url;
-  return url.replace('/upload/', `/upload/w_${w},h_${h},c_fill,f_jpg,q_auto/`);
+  // q_auto:low + dimensions ajustées : allège fortement les sources, donc le PNG
+  // final (@vercel/og) passe sous la limite de poids de WhatsApp (~600 Ko-1 Mo).
+  return url.replace('/upload/', `/upload/w_${w},h_${h},c_fill,f_jpg,q_auto:low/`);
 }
 
 export default async function handler(req) {
   try {
-    const { searchParams } = new URL(req.url);
-    const uid = searchParams.get('v');
+    const u = new URL(req.url);
+    // Extraction robuste : ?v=, sinon le segment de chemin (avec ou sans .png).
+    let uid = u.searchParams.get('v') || u.searchParams.get('uid');
+    if (!uid) {
+      const parts = u.pathname.split('/').filter(Boolean);
+      uid = (parts[parts.length - 1] || '').replace(/\.png$/i, '') || null;
+    }
     if (!uid) return new Response('Boutique manquante', { status: 400 });
 
     const shop = await fetchShop(uid);
@@ -84,9 +91,9 @@ export default async function handler(req) {
 
     const nomBoutique = (shop && shop.nom_boutique) || 'Boutique';
     const bio = (shop && shop.bio) || '';
-    const cover = shop && shop.photo_vitrine ? optimized(shop.photo_vitrine, 1200, 340) : null;
+    const cover = shop && shop.photo_vitrine ? optimized(shop.photo_vitrine, 800, 230) : null;
 
-    const prodPhoto = vedette && vedette.photo_url ? optimized(vedette.photo_url, 300, 300) : null;
+    const prodPhoto = vedette && vedette.photo_url ? optimized(vedette.photo_url, 220, 220) : null;
     const prodNom = vedette ? vedette.nom : null;
     const prodPrix = vedette && vedette.prix != null ? fmtPrice(vedette.prix) : null;
 
@@ -131,5 +138,5 @@ export default async function handler(req) {
   } catch (e) {
     return new Response('Erreur : ' + e.message, { status: 500 });
   }
-}
-  
+             }
+      
