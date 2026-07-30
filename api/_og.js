@@ -206,6 +206,7 @@ ${image ? `<meta property="og:image" content="${esc(image)}">
 <meta property="og:image:type" content="image/png">` : ''}
 <meta property="og:url" content="${esc(canonicalUrl)}">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="MboaCatalog">
 <meta name="twitter:card" content="summary_large_image">
 ${redirect}
 </head>
@@ -228,4 +229,4 @@ module.exports = {
   fetchProduct, fetchShop, fetchFeaturedProduct, flattenFirestore,
   esc, ogHtml, isCrawler,
 };
-  
+                                               
