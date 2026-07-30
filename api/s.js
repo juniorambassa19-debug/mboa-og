@@ -64,7 +64,9 @@ module.exports = async (req, res) => {
     // Domaine du portier en dur : plus fiable que req.headers.host, qui peut
     // renvoyer un host interne Vercel et casser l'URL vue par WhatsApp.
     const OG_HOST = 'mboa-og-63f8.vercel.app';
-    const image = `https://${OG_HOST}/api/vitrine-image?v=${encodeURIComponent(uid)}`;
+    // URL avec extension .png : WhatsApp accepte les vraies terminaisons image.
+    // Cette route est réécrite (vercel.json) vers le générateur @vercel/og.
+    const image = `https://${OG_HOST}/vitrine/${encodeURIComponent(uid)}.png`;
 
     // Mode diagnostic lisible sur mobile : ?show=1 affiche l'URL og:image et
     // charge l'image directement (pour voir si elle s'affiche).
