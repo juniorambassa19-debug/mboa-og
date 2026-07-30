@@ -122,13 +122,14 @@ export default async function handler(req) {
       width: 1200,
       height: 630,
       headers: {
-        // Cache CDN : après la 1re génération, l'image est servie instantanément
-        // (WhatsApp n'attend pas la regénération, ce qui évite qu'il abandonne).
+        // Content-Type explicite : WhatsApp doit voir clairement que c'est une image PNG.
+        'Content-Type': 'image/png',
+        // Cache CDN : après la 1re génération, l'image est servie instantanément.
         'Cache-Control': 'public, immutable, no-transform, s-maxage=86400, max-age=86400',
       },
     });
   } catch (e) {
     return new Response('Erreur : ' + e.message, { status: 500 });
   }
-                    }
-                                                                       
+}
+  
