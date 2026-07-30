@@ -11,6 +11,10 @@
     {
       "source": "/vitrine/:uid.png",
       "destination": "/api/vitrine-image?v=:uid"
+    },
+    {
+      "source": "/boutique/:uid",
+      "destination": "/api/s?v=:uid"
     }
   ]
 }
