@@ -69,7 +69,7 @@ module.exports = async (req, res) => {
     // PUIS Cloudinary la récupère (fetch) et la COMPRESSE en JPG léger.
     // WhatsApp reçoit alors une image légère qu'il accepte (comme les produits).
     const ogPng = `https://${OG_HOST}/vitrine/${encodeURIComponent(uid)}.png`;
-    const image = `https://res.cloudinary.com/${CLOUD}/image/fetch/f_jpg,q_auto/${encodeURIComponent(ogPng)}`;
+    const image = `https://res.cloudinary.com/${CLOUD}/image/fetch/w_1200,h_630,c_fill,f_jpg,q_auto/${encodeURIComponent(ogPng)}`;
 
     // Mode diagnostic lisible sur mobile : ?show=1 affiche l'URL og:image et
     // charge l'image directement (pour voir si elle s'affiche).
@@ -103,4 +103,4 @@ module.exports = async (req, res) => {
     return res.end('<p>Erreur temporaire.</p>');
   }
 };
-    
+      
