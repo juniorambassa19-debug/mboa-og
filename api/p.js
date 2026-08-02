@@ -52,6 +52,21 @@ module.exports = async (req, res) => {
     }
 
     const image = ogProductBanner(product);
+
+    // Mode diagnostic : ?show=1 affiche l'og:image et charge l'image.
+    if (req.url && req.url.indexOf('show=1') !== -1) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.end(
+        '<html><head><meta charset=utf-8></head><body style="font-family:sans-serif;padding:16px;word-break:break-all;background:#111;color:#eee;">' +
+        '<h3>DEBUG produit</h3>' +
+        '<p><b>Produit lu ?</b> ' + (product ? 'OUI — ' + (product.nom||'') : 'NON') + '</p>' +
+        '<p><b>photo_url :</b> ' + (product && product.photo_url ? product.photo_url : '(absent)') + '</p>' +
+        '<p><b>og:image =</b><br>' + (image || '(aucune)') + '</p>' +
+        (image ? '<img src="' + image + '" style="width:100%;border:1px solid #444;">' : '') +
+        '</body></html>'
+      );
+    }
+
     const prixTxt = product.prix ? `${Number(product.prix).toLocaleString('fr-FR')} FCFA` : '';
     const html = ogHtml({
       title: `${product.nom || 'Article'}${prixTxt ? ' — ' + prixTxt : ''}`,
@@ -73,40 +88,4 @@ module.exports = async (req, res) => {
     return res.end('<p>Erreur temporaire.</p>');
   }
 };
-
-    // Produit absent ou privé : on renvoie un aperçu générique plutôt qu'une
-    // erreur (le client sera quand même redirigé).
-    if (!product) {
-      const html = ogHtml({
-        title: 'MboaCatalog — Boutique',
-        description: 'Découvrez cet article et commandez directement sur WhatsApp.',
-        image: null,
-        canonicalUrl,
-        redirectUrl: APP_BASE,
-      });
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      return res.end(html);
-    }
-
-    const image = ogProductBanner(product);
-    const prixTxt = product.prix ? `${Number(product.prix).toLocaleString('fr-FR')} FCFA` : '';
-    const html = ogHtml({
-      title: `${product.nom || 'Article'}${prixTxt ? ' — ' + prixTxt : ''}`,
-      description: 'Disponible maintenant. Commandez directement sur WhatsApp.',
-      image,
-      canonicalUrl,
-      redirectUrl,
-    });
-
-    // Cache CDN : l'aperçu d'un produit change rarement ; on autorise Vercel à
-    // le mettre en cache 10 min (revalidation en arrière-plan).
-    res.setHeader('Cache-Control', 's-maxage=600, stale-while-revalidate=3600');
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    return res.end(html);
-  } catch (e) {
-    res.statusCode = 500;
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    return res.end('<p>Erreur temporaire.</p>');
-  }
-};
-  
+                   
