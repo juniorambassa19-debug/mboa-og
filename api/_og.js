@@ -53,19 +53,12 @@ function ogProductBanner(product) {
   const pid = extractPublicId(product.photo_url);
   if (!pid) return null;
 
-  // c_pad,b_white : le PRODUIT ENTIER est visible (rien coupé), sur fond blanc
-  // épuré facon boutique haut de gamme. f_jpg,q_auto : conversion + compression
-  // (robuste tous formats/poids, y compris PNG UHD IA).
   const base = 'w_1200,h_630,c_pad,b_white,f_jpg,q_auto';
 
-  // Prix en OR ANTIQUE (#8B7500), discret, bas-droite dans le negative space.
   const prix = `co_rgb:8B7500,l_text:Arial_44:${cloudinaryText('Prix : ' + fmtPrice(product.prix))},g_south_east,x_50,y_50`;
 
-  // Label « Négociable » en TAUPE (#A39C92), au-dessus du prix, seulement si
-  // le produit est négociable. Rien si prix fixe (épure maximale).
   const layers = [base, prix];
   if (isNegotiable(product)) {
-    // on remonte le prix pour laisser la place au label en dessous
     layers[1] = `co_rgb:8B7500,l_text:Arial_44:${cloudinaryText('Prix : ' + fmtPrice(product.prix))},g_south_east,x_50,y_95`;
     layers.push(`co_rgb:A39C92,l_text:Arial_30:${cloudinaryText('Négociable')},g_south_east,x_50,y_50`);
   }
@@ -73,16 +66,10 @@ function ogProductBanner(product) {
   return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${layers.join('/')}/${pid}`;
 }
 
-// Bannière VITRINE (version simple) : photo de couverture + nom de la boutique.
-// Champs boutique : nom_boutique, photo_vitrine, bio.
 function ogShopBanner(shop) {
   if (!shop) return null;
   const pid = extractPublicId(shop.photo_vitrine);
   if (!pid) return null;
-  // Transformation identique au produit (validée) : uniquement w/h/c_fill.
-  // Pas de e_brightness (module non garanti sur ce compte). Juste le nom de
-  // boutique en doré. Le slogan (souvent avec accents, fragile en URL) est
-  // volontairement RETIRÉ de l'image pour l'instant.
   const base = 'w_1200,h_630,c_fill,f_jpg,q_auto';
   const nom = `l_text:Arial_60_bold:${cloudinaryText(shop.nom_boutique || 'Boutique')},co_rgb:F3E5AB,g_south_west,x_55,y_60`;
   return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${base}/${nom}/${pid}`;
@@ -90,8 +77,6 @@ function ogShopBanner(shop) {
 
 // ---- Firestore REST (lecture publique, sans SDK ni secret) ----
 
-// Convertit un document Firestore REST ({ fields: { nom: { stringValue }... } })
-// en objet JS plat.
 function flattenFirestore(doc) {
   if (!doc || !doc.fields) return null;
   const out = {};
@@ -101,7 +86,7 @@ function flattenFirestore(doc) {
     else if ('doubleValue' in v) out[k] = Number(v.doubleValue);
     else if ('booleanValue' in v) out[k] = v.booleanValue;
     else if ('nullValue' in v) out[k] = null;
-    else out[k] = null; // types complexes ignorés (pas nécessaires pour l'aperçu)
+    else out[k] = null;
   }
   return out;
 }
@@ -121,11 +106,7 @@ async function fetchShop(shopId) {
   return flattenFirestore(await res.json());
 }
 
-// Récupère LE produit vedette d'une boutique : l'épinglé en priorité, sinon le
-// plus récent. Reproduit exactement le tri de l'app (public/views/catalogue.js).
-// N'invente rien : si la boutique n'a aucun produit, renvoie null.
 async function fetchFeaturedProduct(shopUid) {
-  // runQuery : tous les produits de cette vendeuse (lecture publique autorisée).
   const url = `https://firestore.googleapis.com/v1/projects/${FIRESTORE_PROJECT}/databases/(default)/documents:runQuery`;
   const body = {
     structuredQuery: {
@@ -151,7 +132,6 @@ async function fetchFeaturedProduct(shopUid) {
     rows = await res.json();
   } catch (e) { return null; }
 
-  // rows = [{ document: {...} }, ...] ; on aplatit et on filtre les vides.
   const produits = (rows || [])
     .filter((r) => r.document)
     .map((r) => flattenFirestore(r.document))
@@ -159,10 +139,6 @@ async function fetchFeaturedProduct(shopUid) {
 
   if (!produits.length) return null;
 
-  // PRODUIT VEDETTE = le PLUS VENDU (ventes_count le plus élevé).
-  // Repli si personne n'a encore de vente : le premier du catalogue (le plus
-  // récent). L'épingle n'entre PAS dans ce choix (un vendeur épingle plusieurs
-  // articles pour les garder visibles, ça ne désigne pas UNE vedette).
   const ventes = (p) => Number(p.ventes_count) || 0;
   const createdMs = (p) => {
     const t = p.created_at;
@@ -172,11 +148,11 @@ async function fetchFeaturedProduct(shopUid) {
   };
   produits.sort((a, b) => {
     const va = ventes(a), vb = ventes(b);
-    if (va !== vb) return vb - va;               // 1. le plus vendu devant
-    return createdMs(b) - createdMs(a);          // 2. sinon le plus récent
+    if (va !== vb) return vb - va;
+    return createdMs(b) - createdMs(a);
   });
 
-  return produits[0];   // le vedette : plus vendu, sinon premier du catalogue
+  return produits[0];
 }
 
 // ---- Échappement HTML (sécurité : jamais injecter du texte brut) ----
@@ -191,12 +167,24 @@ function ogHtml({ title, description, image, canonicalUrl, redirectUrl, isBot })
   // CLÉ : les robots (WhatsApp/Facebook) ne doivent PAS être redirigés, sinon
   // ils suivent la redirection jusqu'à l'app Firebase et lisent SES balises OG
   // (le logo) au lieu de notre belle image. On ne redirige donc QUE les humains.
+  //
+  // Redondance volontaire pour que la redirection parte à COUP SÛR sur tous les
+  // navigateurs (meta refresh + script + repli lien cliquable). Le script tente
+  // replace() puis href en secours si l'app met un instant à répondre.
   const redirect = isBot ? '' : `<meta http-equiv="refresh" content="0; url=${esc(redirectUrl)}">`;
-  const redirectScript = isBot ? '' : `<script>window.location.replace(${JSON.stringify(redirectUrl)});</script>`;
+  const redirectScript = isBot ? '' : `<script>
+  (function(){
+    var u = ${JSON.stringify(redirectUrl)};
+    try { window.location.replace(u); } catch (e) {}
+    setTimeout(function(){ try { window.location.href = u; } catch (e) {} }, 60);
+  })();
+  </script>`;
+  const manualLink = isBot ? '' : `<p style="font-family:sans-serif;font-size:15px;">Redirection vers la boutique…<br><a href="${esc(redirectUrl)}" style="color:#00b85f;font-weight:bold;">Ouvrir la boutique</a></p>`;
   return `<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(description)}">
@@ -212,15 +200,29 @@ ${redirect}
 </head>
 <body>
 ${redirectScript}
-<p>Redirection vers la boutique…</p>
+${manualLink || '<p>MboaCatalog</p>'}
 </body>
 </html>`;
 }
 
-// Détecte les robots d'aperçu de lien (WhatsApp, Facebook, Twitter, etc.).
+// Détecte les ROBOTS d'aperçu de lien (WhatsApp, Facebook, Twitter, etc.).
+//
+// ⚠️ CORRECTION CLÉ : quand un HUMAIN tape le lien DANS WhatsApp, le lien
+// s'ouvre dans le navigateur intégré de WhatsApp, dont l'UA contient aussi
+// « whatsapp ». L'ancienne détection le prenait pour un robot et NE le
+// redirigeait PAS -> écran blanc bloqué sur « Redirection… ».
+//
+// La nuance fiable : un VRAI navigateur (y compris le WebView WhatsApp) a un
+// UA complet contenant « mozilla ». Le robot d'aperçu a un UA MINIMAL sans
+// « mozilla » (ex. « WhatsApp/2.23 A », « facebookexternalhit/1.1 »). On ne
+// traite donc en robot QUE les UA de bot SANS signature de navigateur.
 function isCrawler(userAgent) {
   const ua = (userAgent || '').toLowerCase();
-  return /whatsapp|facebookexternalhit|facebot|twitterbot|telegrambot|linkedinbot|slackbot|discordbot|googlebot|bingbot|embedly|pinterest|vkshare|w3c_validator|og_scraper/.test(ua);
+  const isBotUA = /whatsapp|facebookexternalhit|facebot|twitterbot|telegrambot|linkedinbot|slackbot|discordbot|googlebot|bingbot|embedly|pinterest|vkshare|w3c_validator|og_scraper/.test(ua);
+  if (!isBotUA) return false;
+  // Signature d'un vrai navigateur -> c'est un HUMAIN (à rediriger), pas un robot.
+  if (ua.includes('mozilla')) return false;
+  return true;
 }
 
 module.exports = {
@@ -229,4 +231,4 @@ module.exports = {
   fetchProduct, fetchShop, fetchFeaturedProduct, flattenFirestore,
   esc, ogHtml, isCrawler,
 };
-                                               
+                                                                
